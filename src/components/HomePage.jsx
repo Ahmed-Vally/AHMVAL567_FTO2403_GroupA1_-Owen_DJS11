@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import SortDropdown from './SortDropDown';
 
 function HomePage() {
-  const [data, setData] = useState([]); // State to store API data
-  const [loading, setLoading] = useState(true); // State to manage loading state
-  const [error, setError] = useState(null); // State to manage errors
-  const [selectedCard, setSelectedCard] = useState(null); // State to manage the selected card
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [sortOption, setSortOption] = useState('none');
+  const [filteredData, setFilteredData] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+
+  const history = useHistory();
 
   useEffect(() => {
-    const apiUrl = 'https://podcast-api.netlify.app'; // API endpoint
+    const apiUrl = 'https://podcast-api.netlify.app';
 
     const fetchData = async () => {
       try {
@@ -16,10 +22,10 @@ function HomePage() {
           throw new Error('Network response was not ok');
         }
         const result = await response.json();
-        console.log('API response:', result); // Log the API response to check its structure
 
         if (Array.isArray(result)) {
-          setData(result); // Directly set the data without filtering or sorting
+          setData(result);
+          setFilteredData(result);
         } else {
           throw new Error('Unexpected data format');
         }
@@ -31,7 +37,13 @@ function HomePage() {
     };
 
     fetchData();
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
+
+  useEffect(() => {
+    // Load favorites from localStorage on component mount
+    const savedFavorites = JSON.parse(localStorage.getItem('favorites')) || [];
+    setFavorites(savedFavorites);
+  }, []);
 
   const openModal = (card) => {
     setSelectedCard(card);
@@ -39,6 +51,36 @@ function HomePage() {
 
   const closeModal = () => {
     setSelectedCard(null);
+  };
+
+  // Sort data based on sortOption
+  const sortedData = [...filteredData].sort((a, b) => {
+    const nameA = typeof a.name === 'string' ? a.name : 'a';
+    const nameB = typeof b.name === 'string' ? b.name : 'b';
+
+    if (sortOption === 'asc') {
+      return nameA.localeCompare(nameB);
+    } else if (sortOption === 'desc') {
+      return nameB.localeCompare(nameA);
+    }
+    return 0; // No sorting
+  });
+
+  const toggleFavorite = (podcast) => {
+    setFavorites((prevFavorites) => {
+      const isFavorite = prevFavorites.some((item) => item.id === podcast.id);
+      const updatedFavorites = isFavorite
+        ? prevFavorites.filter((item) => item.id !== podcast.id)
+        : [...prevFavorites, podcast];
+
+      // Save updated favorites to localStorage
+      localStorage.setItem('favorites', JSON.stringify(updatedFavorites));
+      return updatedFavorites;
+    });
+  };
+
+  const handleGoToFavorites = () => {
+    history.push('/favorites');
   };
 
   if (loading) {
@@ -52,9 +94,17 @@ function HomePage() {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>Podcast List</h1>
-      {data.length > 0 ? (
-        <div style={styles.grid}>
-          {data.map((item) => (
+
+      <div style={styles.controlsContainer}>
+        <SortDropdown sortOption={sortOption} setSortOption={setSortOption} />
+        <button style={styles.favoritesButton} onClick={handleGoToFavorites}>
+          View Favorites
+        </button>
+      </div>
+
+      <div style={styles.grid}>
+        {sortedData.length > 0 ? (
+          sortedData.map((item) => (
             <div
               key={item.id}
               style={styles.card}
@@ -65,12 +115,14 @@ function HomePage() {
               <p style={styles.description}>
                 {item.description ? item.description.slice(0, 50) + '...' : 'No description available'}
               </p>
+              <p style={styles.info}>Seasons: {item.seasons || 'N/A'}</p>
+              <p style={styles.info}>Episodes: {item.episodes || 'N/A'}</p>
             </div>
-          ))}
-        </div>
-      ) : (
-        <p>No podcasts available</p>
-      )}
+          ))
+        ) : (
+          <p>No podcasts available</p>
+        )}
+      </div>
 
       {selectedCard && (
         <div style={styles.modalOverlay} onClick={closeModal}>
@@ -78,6 +130,11 @@ function HomePage() {
             <img src={selectedCard.image || 'placeholder.jpg'} alt={selectedCard.name} style={styles.modalImage} />
             <h2 style={styles.modalTitle}>{selectedCard.name}</h2>
             <p style={styles.modalDescription}>{selectedCard.description || 'No description available'}</p>
+            <p style={styles.info}>Seasons: {selectedCard.seasons || 'N/A'}</p>
+            <p style={styles.info}>Episodes: {selectedCard.episodes || 'N/A'}</p>
+            <button style={styles.favoriteButton} onClick={() => toggleFavorite(selectedCard)}>
+              {favorites.some((item) => item.id === selectedCard.id) ? 'Unfavorite' : 'Favorite'}
+            </button>
             <button style={styles.closeButton} onClick={closeModal}>Close</button>
           </div>
         </div>
@@ -96,6 +153,11 @@ const styles = {
     textAlign: 'center',
     marginBottom: '20px',
   },
+  controlsContainer: {
+    marginBottom: '20px',
+    display: 'flex',
+    justifyContent: 'space-between',
+  },
   grid: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -103,7 +165,7 @@ const styles = {
     gap: '20px',
   },
   card: {
-    flex: '1 1 calc(25% - 20px)', // Adjusted to make 4 cards per row
+    flex: '1 1 calc(25% - 20px)',
     backgroundColor: '#fff',
     padding: '10px',
     borderRadius: '10px',
@@ -126,6 +188,11 @@ const styles = {
     fontSize: '1rem',
     color: '#666',
     overflow: 'hidden',
+  },
+  info: {
+    fontSize: '0.9rem',
+    color: '#888',
+    marginTop: '5px',
   },
   modalOverlay: {
     position: 'fixed',
@@ -150,7 +217,7 @@ const styles = {
   modalImage: {
     width: '100%',
     height: '300px',
-    objectFit: 'full',
+    objectFit: 'fill',
     borderRadius: '10px',
     marginBottom: '15px',
   },
@@ -171,6 +238,27 @@ const styles = {
     color: '#fff',
     border: 'none',
     padding: '10px',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    fontSize: '1rem',
+  },
+  favoriteButton: {
+    position: 'absolute',
+    top: '50px',
+    right: '10px',
+    backgroundColor: '#f39c12',
+    color: '#fff',
+    border: 'none',
+    padding: '10px',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    fontSize: '1rem',
+  },
+  favoritesButton: {
+    backgroundColor: '#3498db',
+    color: '#fff',
+    border: 'none',
+    padding: '10px 20px',
     borderRadius: '5px',
     cursor: 'pointer',
     fontSize: '1rem',
