@@ -23,23 +23,23 @@ function SortDropdown({ sortOption, setSortOption }) {
 }
 
 const styles = {
-    dropdownContainer: {
-      marginBottom: '20px',
-      textAlign: 'left',
-      display: 'flex',
-      alignItems: 'center',
-    },
-    label: {
-      marginRight: '10px',
-      fontSize: '1rem',
-      fontWeight: 'bold',
-    },
-    dropdown: {
-      padding: '10px',
-      fontSize: '1rem',
-      borderRadius: '5px',
-      border: '1px solid #ccc',
-    },
-  };
-  
+  dropdownContainer: {
+    marginBottom: '20px',
+    textAlign: 'left',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  label: {
+    marginRight: '10px',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+  },
+  dropdown: {
+    padding: '10px',
+    fontSize: '1rem',
+    borderRadius: '5px',
+    border: '1px solid #ccc',
+  },
+};
+
 export default SortDropdown;

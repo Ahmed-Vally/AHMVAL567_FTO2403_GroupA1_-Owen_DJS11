@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import SortDropdown from './SortDropDown';
+import { Link, Route, Routes, useNavigate } from 'react-router-dom';
+import SortDropdown from './SortDropdown';
+import Favorites from './Favorites';
 
 function HomePage() {
   const [data, setData] = useState([]);
@@ -9,8 +11,8 @@ function HomePage() {
   const [sortOption, setSortOption] = useState('none');
   const [filteredData, setFilteredData] = useState([]);
   const [favorites, setFavorites] = useState([]);
-
-  const history = useHistory();
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // State for burger menu
+  const navigate = useNavigate(); // Hook for navigation
 
   useEffect(() => {
     const apiUrl = 'https://podcast-api.netlify.app';
@@ -26,6 +28,7 @@ function HomePage() {
         if (Array.isArray(result)) {
           setData(result);
           setFilteredData(result);
+          console.log('Fetched Data:', result); // Debugging line
         } else {
           throw new Error('Unexpected data format');
         }
@@ -40,10 +43,37 @@ function HomePage() {
   }, []);
 
   useEffect(() => {
-    // Load favorites from localStorage on component mount
-    const savedFavorites = JSON.parse(localStorage.getItem('favorites')) || [];
-    setFavorites(savedFavorites);
+    let filteredAndSortedData = [...data];
+
+    // Sorting logic
+    if (sortOption === 'asc') {
+      filteredAndSortedData.sort((a, b) => {
+        const nameA = a.name ? a.name.toUpperCase() : 'A';
+        const nameB = b.name ? b.name.toUpperCase() : 'Z';
+        return nameA.localeCompare(nameB);
+      });
+    } else if (sortOption === 'desc') {
+      filteredAndSortedData.sort((a, b) => {
+        const nameA = a.name ? a.name.toUpperCase() : 'Z';
+        const nameB = b.name ? b.name.toUpperCase() : 'A';
+        return nameB.localeCompare(nameA);
+      });
+    }
+
+    console.log('Filtered and Sorted Data:', filteredAndSortedData); // Debugging line
+    setFilteredData(filteredAndSortedData);
+  }, [sortOption, data]);
+
+  useEffect(() => {
+    // Load favorites from local storage on initial render
+    const storedFavorites = JSON.parse(localStorage.getItem('favorites')) || [];
+    setFavorites(storedFavorites);
   }, []);
+
+  useEffect(() => {
+    // Save favorites to local storage whenever favorites change
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+  }, [favorites]);
 
   const openModal = (card) => {
     setSelectedCard(card);
@@ -53,34 +83,18 @@ function HomePage() {
     setSelectedCard(null);
   };
 
-  // Sort data based on sortOption
-  const sortedData = [...filteredData].sort((a, b) => {
-    const nameA = typeof a.name === 'string' ? a.name : 'a';
-    const nameB = typeof b.name === 'string' ? b.name : 'b';
-
-    if (sortOption === 'asc') {
-      return nameA.localeCompare(nameB);
-    } else if (sortOption === 'desc') {
-      return nameB.localeCompare(nameA);
-    }
-    return 0; // No sorting
-  });
-
   const toggleFavorite = (podcast) => {
     setFavorites((prevFavorites) => {
-      const isFavorite = prevFavorites.some((item) => item.id === podcast.id);
-      const updatedFavorites = isFavorite
-        ? prevFavorites.filter((item) => item.id !== podcast.id)
-        : [...prevFavorites, podcast];
-
-      // Save updated favorites to localStorage
-      localStorage.setItem('favorites', JSON.stringify(updatedFavorites));
-      return updatedFavorites;
+      if (prevFavorites.some((item) => item.id === podcast.id)) {
+        return prevFavorites.filter((item) => item.id !== podcast.id);
+      } else {
+        return [...prevFavorites, podcast];
+      }
     });
   };
 
-  const handleGoToFavorites = () => {
-    history.push('/favorites');
+  const handleMenuToggle = () => {
+    setIsMenuOpen(!isMenuOpen);
   };
 
   if (loading) {
@@ -93,18 +107,27 @@ function HomePage() {
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>Podcast List</h1>
+      <header style={styles.header}>
+        <button style={styles.menuButton} onClick={handleMenuToggle}>
+          ☰
+        </button>
+        {isMenuOpen && (
+          <nav style={styles.navMenu}>
+            <Link to="/favorites" onClick={handleMenuToggle} style={styles.navLink}>
+              View Favorites
+            </Link>
+          </nav>
+        )}
+        <h1 style={styles.title}>Podcast List</h1>
+      </header>
 
       <div style={styles.controlsContainer}>
         <SortDropdown sortOption={sortOption} setSortOption={setSortOption} />
-        <button style={styles.favoritesButton} onClick={handleGoToFavorites}>
-          View Favorites
-        </button>
       </div>
 
-      <div style={styles.grid}>
-        {sortedData.length > 0 ? (
-          sortedData.map((item) => (
+      {filteredData.length > 0 ? (
+        <div style={styles.grid}>
+          {filteredData.map((item) => (
             <div
               key={item.id}
               style={styles.card}
@@ -118,11 +141,11 @@ function HomePage() {
               <p style={styles.info}>Seasons: {item.seasons || 'N/A'}</p>
               <p style={styles.info}>Episodes: {item.episodes || 'N/A'}</p>
             </div>
-          ))
-        ) : (
-          <p>No podcasts available</p>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p>No podcasts available</p>
+      )}
 
       {selectedCard && (
         <div style={styles.modalOverlay} onClick={closeModal}>
@@ -147,6 +170,29 @@ const styles = {
   container: {
     padding: '20px',
     backgroundColor: '#BA712F',
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    position: 'relative',
+  },
+ 
+  navMenu: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    backgroundColor: '#fff',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+    borderRadius: '5px',
+    padding: '10px',
+    zIndex: 1000,
+  },
+  navLink: {
+    display: 'block',
+    padding: '10px',
+    textDecoration: 'none',
+    color: '#333',
   },
   title: {
     fontSize: '2rem',
@@ -216,8 +262,8 @@ const styles = {
   },
   modalImage: {
     width: '100%',
-    height: '300px',
-    objectFit: 'fill',
+    height: '400px',
+    objectFit: 'cover',
     borderRadius: '10px',
     marginBottom: '15px',
   },
@@ -250,15 +296,6 @@ const styles = {
     color: '#fff',
     border: 'none',
     padding: '10px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontSize: '1rem',
-  },
-  favoritesButton: {
-    backgroundColor: '#3498db',
-    color: '#fff',
-    border: 'none',
-    padding: '10px 20px',
     borderRadius: '5px',
     cursor: 'pointer',
     fontSize: '1rem',

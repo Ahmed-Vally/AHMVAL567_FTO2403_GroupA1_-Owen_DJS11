@@ -64,3 +64,4 @@ const styles = {
 };
 
 export default Favorites;
+    
