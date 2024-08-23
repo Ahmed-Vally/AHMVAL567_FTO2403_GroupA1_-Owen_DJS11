@@ -4,7 +4,6 @@ import LandingPage from './components/LandingPage';
 import HomePage from './components/HomePage';
 import FavoritesPage from './components/FavoritesPage';
 import SeasonsPage from './components/SeasonsPage';
-import SortDropdown from './components/SortDropdown';
 
 function App() {
   return (

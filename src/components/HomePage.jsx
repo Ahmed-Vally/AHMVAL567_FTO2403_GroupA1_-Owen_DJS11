@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import SortDropdown from './SortDropdown';
+import SortDropdown from './SortDropDown';
 import { format, parseISO } from 'date-fns';
 
 const genreMap = {
