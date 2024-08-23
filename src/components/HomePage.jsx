@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SortDropdown from './SortDropdown';
 import { format, parseISO } from 'date-fns';
-import FavoritesPage from './FavoritesPage';
 
 const genreMap = {
   "1": "Personal Growth",
@@ -21,10 +20,11 @@ function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
-  const [sortOption, setSortOption] = useState('asc'); // Default sorting option
+  const [sortOption, setSortOption] = useState('asc');
   const [filteredData, setFilteredData] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -58,6 +58,12 @@ function HomePage() {
   useEffect(() => {
     let filteredAndSortedData = [...data];
 
+    if (searchQuery) {
+      filteredAndSortedData = filteredAndSortedData.filter(item =>
+        item.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
     if (sortOption === 'asc') {
       filteredAndSortedData.sort((a, b) => {
         const nameA = a.title ? a.title.toUpperCase() : 'A';
@@ -74,7 +80,7 @@ function HomePage() {
 
     console.log('Filtered and Sorted Data:', filteredAndSortedData);
     setFilteredData(filteredAndSortedData);
-  }, [sortOption, data]);
+  }, [sortOption, data, searchQuery]);
 
   useEffect(() => {
     const storedFavorites = JSON.parse(localStorage.getItem('favorites')) || [];
@@ -107,6 +113,10 @@ function HomePage() {
         return [...prevFavorites, podcast];
       }
     });
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
   };
 
   if (loading) {
@@ -144,6 +154,13 @@ function HomePage() {
 
       <div style={styles.controlsContainer}>
         <SortDropdown sortOption={sortOption} setSortOption={setSortOption} />
+        <input
+          type="text"
+          placeholder="Search podcasts..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+          style={styles.searchInput}
+        />
       </div>
 
       {filteredData.length > 0 ? (
@@ -224,6 +241,18 @@ const styles = {
   },
   controlsContainer: {
     marginBottom: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  searchInput: {
+    marginTop: '10px',
+    padding: '10px',
+    width: '100%',
+    maxWidth: '300px',
+    borderRadius: '5px',
+    border: '1px solid #ccc',
+    fontSize: '1rem',
   },
   grid: {
     display: 'flex',

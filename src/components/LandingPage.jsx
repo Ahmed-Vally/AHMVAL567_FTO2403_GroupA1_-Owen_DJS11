@@ -20,6 +20,9 @@ function LandingPage() {
       <button style={styles.button} onClick={handleNavigate}>
         Go to Home Page
       </button>
+      <p style={styles.description}>
+        Grab a cup of somthing hot too drink and sit by the fire while our podcasts take away all your worries.
+      </p>
     </div>
   );
 }
@@ -29,10 +32,14 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Move content upwards
     height: '100vh',
     width: '100vw',
-    padding: '0 20px',
+    padding: '20px', // Add padding for spacing
+    backgroundImage: 'url(/src/assets/fire.gif)', // Update with the correct path
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
   },
   title: {
     fontSize: '2.5rem',
@@ -42,7 +49,7 @@ const styles = {
   description: {
     fontSize: '1.25rem',
     color: '#fff', // Ensure text is visible on the GIF
-    marginBottom: '40px',
+    marginBottom: '20px', // Adjust margin to move text closer together
   },
   button: {
     fontSize: '1rem',
