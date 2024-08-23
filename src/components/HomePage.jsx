@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Link, Route, Routes, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import SortDropdown from './SortDropdown';
-import Favorites from './Favorites';
+import FavoritesPage from './FavoritesPage';
+
+const genreMap = {
+  "1": "Personal Growth",
+  "2": "Investigative Journalism",
+  "3": "History",
+  "4": "Comedy",
+  "5": "Entertainment",
+  "6": "Business",
+  "7": "Fiction",
+  "8": "News",
+  "9": "Kids and Family"
+};
 
 function HomePage() {
   const [data, setData] = useState([]);
@@ -11,8 +23,9 @@ function HomePage() {
   const [sortOption, setSortOption] = useState('none');
   const [filteredData, setFilteredData] = useState([]);
   const [favorites, setFavorites] = useState([]);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // State for burger menu
-  const navigate = useNavigate(); // Hook for navigation
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [seasonData, setSeasonData] = useState({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     const apiUrl = 'https://podcast-api.netlify.app';
@@ -28,7 +41,7 @@ function HomePage() {
         if (Array.isArray(result)) {
           setData(result);
           setFilteredData(result);
-          console.log('Fetched Data:', result); // Debugging line
+          console.log('Fetched Data:', result);
         } else {
           throw new Error('Unexpected data format');
         }
@@ -45,42 +58,73 @@ function HomePage() {
   useEffect(() => {
     let filteredAndSortedData = [...data];
 
-    // Sorting logic
     if (sortOption === 'asc') {
       filteredAndSortedData.sort((a, b) => {
-        const nameA = a.name ? a.name.toUpperCase() : 'A';
-        const nameB = b.name ? b.name.toUpperCase() : 'Z';
+        const nameA = a.title ? a.title.toUpperCase() : 'A';
+        const nameB = b.title ? b.title.toUpperCase() : 'Z';
         return nameA.localeCompare(nameB);
       });
     } else if (sortOption === 'desc') {
       filteredAndSortedData.sort((a, b) => {
-        const nameA = a.name ? a.name.toUpperCase() : 'Z';
-        const nameB = b.name ? b.name.toUpperCase() : 'A';
+        const nameA = a.title ? a.title.toUpperCase() : 'Z';
+        const nameB = b.title ? b.title.toUpperCase() : 'A';
         return nameB.localeCompare(nameA);
       });
     }
 
-    console.log('Filtered and Sorted Data:', filteredAndSortedData); // Debugging line
+    console.log('Filtered and Sorted Data:', filteredAndSortedData);
     setFilteredData(filteredAndSortedData);
   }, [sortOption, data]);
 
   useEffect(() => {
-    // Load favorites from local storage on initial render
     const storedFavorites = JSON.parse(localStorage.getItem('favorites')) || [];
     setFavorites(storedFavorites);
   }, []);
 
   useEffect(() => {
-    // Save favorites to local storage whenever favorites change
     localStorage.setItem('favorites', JSON.stringify(favorites));
   }, [favorites]);
 
+  const fetchSeasonData = async (id) => {
+    try {
+      const response = await fetch(`https://podcast-api.netlify.app/id/${id}`);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const result = await response.json();
+
+      if (result.seasons && result.seasons.length > 0) {
+        // Store the episodes for each season
+        const seasonMap = result.seasons.reduce((acc, season) => {
+          acc[season.id] = season.episodes || [];
+          return acc;
+        }, {});
+        setSeasonData({
+          ...result,
+          seasons: result.seasons,
+          seasonEpisodes: seasonMap
+        });
+      } else {
+        setSeasonData({ seasons: [], seasonEpisodes: {} });
+      }
+    } catch (error) {
+      console.error('Failed to fetch season data:', error);
+    }
+  };
+
   const openModal = (card) => {
     setSelectedCard(card);
+    fetchSeasonData(card.id); // Fetch season data for the selected podcast
+    setIsExpanded(false);
   };
 
   const closeModal = () => {
     setSelectedCard(null);
+    setIsExpanded(false);
+  };
+
+  const toggleExpand = () => {
+    setIsExpanded(prev => !prev);
   };
 
   const toggleFavorite = (podcast) => {
@@ -93,10 +137,6 @@ function HomePage() {
     });
   };
 
-  const handleMenuToggle = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
   if (loading) {
     return <p>Loading...</p>;
   }
@@ -105,19 +145,32 @@ function HomePage() {
     return <p>Error: {error}</p>;
   }
 
+  const getGenreNames = (genreIds) => {
+    return genreIds.map(id => genreMap[id] || id).join(', ');
+  };
+
+  const renderEpisodes = (episodes) => {
+    return (
+      <ul style={styles.episodeList}>
+        {episodes.map((episode) => (
+          <li key={episode.id} style={styles.episode}>
+            <Link to={`/episodes/${episode.id}`} style={styles.episodeLink}>
+              {episode.title}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <button style={styles.menuButton} onClick={handleMenuToggle}>
-          ☰
-        </button>
-        {isMenuOpen && (
-          <nav style={styles.navMenu}>
-            <Link to="/favorites" onClick={handleMenuToggle} style={styles.navLink}>
-              View Favorites
-            </Link>
-          </nav>
-        )}
+        <nav style={styles.navMenu}>
+          <Link to="/favorites" style={styles.navLink}>
+            Favorites ☆
+          </Link>
+        </nav>
         <h1 style={styles.title}>Podcast List</h1>
       </header>
 
@@ -133,13 +186,14 @@ function HomePage() {
               style={styles.card}
               onClick={() => openModal(item)}
             >
-              <img src={item.image || 'placeholder.jpg'} alt={item.name} style={styles.image} />
-              <h2 style={styles.name}>{item.name}</h2>
+              <img src={item.image || 'placeholder.jpg'} alt={item.title} style={styles.image} />
+              <h2 style={styles.name}>{item.title}</h2>
               <p style={styles.description}>
                 {item.description ? item.description.slice(0, 50) + '...' : 'No description available'}
               </p>
               <p style={styles.info}>Seasons: {item.seasons || 'N/A'}</p>
               <p style={styles.info}>Episodes: {item.episodes || 'N/A'}</p>
+              <p style={styles.info}>Genres: {getGenreNames(item.genres || [])}</p>
             </div>
           ))}
         </div>
@@ -149,16 +203,35 @@ function HomePage() {
 
       {selectedCard && (
         <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <img src={selectedCard.image || 'placeholder.jpg'} alt={selectedCard.name} style={styles.modalImage} />
-            <h2 style={styles.modalTitle}>{selectedCard.name}</h2>
+          <div
+            style={isExpanded ? styles.modalContentExpanded : styles.modalContent}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={toggleExpand}
+          >
+            <h2 style={styles.modalTitle}>{selectedCard.title}</h2>
+            <img src={selectedCard.image || 'placeholder.jpg'} alt={selectedCard.title} style={styles.modalImage} />
             <p style={styles.modalDescription}>{selectedCard.description || 'No description available'}</p>
             <p style={styles.info}>Seasons: {selectedCard.seasons || 'N/A'}</p>
             <p style={styles.info}>Episodes: {selectedCard.episodes || 'N/A'}</p>
-            <button style={styles.favoriteButton} onClick={() => toggleFavorite(selectedCard)}>
-              {favorites.some((item) => item.id === selectedCard.id) ? 'Unfavorite' : 'Favorite'}
+            <p style={styles.info}>Genres: {getGenreNames(selectedCard.genres || [])}</p>
+
+            <div style={styles.seasonsContainer}>
+              {seasonData.seasons && seasonData.seasons.length > 0 ? (
+                seasonData.seasons.map((season) => (
+                  <div key={season.id} style={styles.season}>
+                    <h3>Season {season.number} - {season.title}</h3>
+                    {renderEpisodes(seasonData.seasonEpisodes[season.id] || [])}
+                  </div>
+                ))
+              ) : (
+                <p>No seasons available</p>
+              )}
+            </div>
+            
+            <button onClick={() => toggleFavorite(selectedCard)} style={styles.favoriteButton}>
+              {favorites.some(favorite => favorite.id === selectedCard.id) ? '★' : '☆'}
             </button>
-            <button style={styles.closeButton} onClick={closeModal}>Close</button>
+            <button onClick={closeModal} style={styles.closeButton}>×</button>
           </div>
         </div>
       )}
@@ -169,40 +242,28 @@ function HomePage() {
 const styles = {
   container: {
     padding: '20px',
-    backgroundColor: '#BA712F',
+    backgroundColor: '#f0f0f0',
   },
   header: {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    position: 'relative',
   },
- 
   navMenu: {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    backgroundColor: '#fff',
-    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-    borderRadius: '5px',
-    padding: '10px',
-    zIndex: 1000,
+    marginBottom: '20px',
   },
   navLink: {
-    display: 'block',
-    padding: '10px',
+    fontSize: '1.25rem',
+    color: '#fff',
     textDecoration: 'none',
-    color: '#333',
   },
   title: {
     fontSize: '2rem',
-    textAlign: 'center',
-    marginBottom: '20px',
+    margin: '0',
+    color: '#333',
   },
   controlsContainer: {
     marginBottom: '20px',
-    display: 'flex',
-    justifyContent: 'space-between',
   },
   grid: {
     display: 'flex',
@@ -259,16 +320,31 @@ const styles = {
     maxWidth: '600px',
     width: '100%',
     position: 'relative',
+    maxHeight: '80vh',
+    overflowY: 'auto',
+    transition: 'transform 0.3s ease',
+  },
+  modalContentExpanded: {
+    backgroundColor: '#fff',
+    padding: '40px',
+    borderRadius: '10px',
+    maxWidth: '800px',
+    width: '100%',
+    position: 'relative',
+    transform: 'scale(1.1)',
+    maxHeight: '80vh',
+    overflowY: 'auto',
+    transition: 'transform 1.3s ease',
   },
   modalImage: {
     width: '100%',
-    height: '400px',
+    height: '450px',
     objectFit: 'cover',
     borderRadius: '10px',
     marginBottom: '15px',
   },
   modalTitle: {
-    fontSize: '1.5rem',
+    fontSize: '1.75rem',
     marginBottom: '10px',
     color: '#333',
   },
@@ -278,27 +354,48 @@ const styles = {
   },
   closeButton: {
     position: 'absolute',
-    top: '10px',
-    right: '10px',
-    backgroundColor: '#e74c3c',
-    color: '#fff',
+    top: '-25px',
+    right: '-15px',
+    backgroundColor: 'transparent',
+    color: 'red',
     border: 'none',
-    padding: '10px',
-    borderRadius: '5px',
+    padding: '5px',
+    borderRadius: '1px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '3rem',
+    outline: 'none',
+    boxShadow: 'none',
   },
   favoriteButton: {
     position: 'absolute',
-    top: '50px',
-    right: '10px',
-    backgroundColor: '#f39c12',
-    color: '#fff',
+    top: '-15px',
+    left: '-10px',
+    backgroundColor: 'transparent',
+    color: 'Yellow',
     border: 'none',
     padding: '10px',
     borderRadius: '5px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: '2.3rem',
+    outline: 'none',
+    boxShadow: 'none',
+  },
+  seasonsContainer: {
+    marginTop: '20px',
+  },
+  season: {
+    marginBottom: '20px',
+  },
+  episodeList: {
+    listStyleType: 'none',
+    padding: 0,
+  },
+  episode: {
+    marginBottom: '10px',
+  },
+  episodeLink: {
+    textDecoration: 'none',
+    color: '#007BFF',
   },
 };
 

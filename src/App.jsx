@@ -1,21 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import LandingPage from './components/LandingPage';
-import HomePage from './components/HomePage';
-import FavoritesPage from './components/FavoritesPage';
-import BurgerMenu from './components/BurgerMenu';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import HomePage from './components/HomePage'; // Example import for HomePage
+import FavoritesPage from './components/FavoritesPage'; // Import for FavoritesPage
 
-const App = () => {
+
+function App() {
   return (
     <Router>
-      <BurgerMenu />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/home" element={<HomePage />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/favorites" element={<FavoritesPage />} />
+        <Route path='/home' element={<HomePage />}/>
       </Routes>
     </Router>
   );
-};
+}
 
 export default App;
