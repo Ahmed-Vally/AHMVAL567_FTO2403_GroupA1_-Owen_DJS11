@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SortDropdown from './SortDropdown';
+import { format, parseISO } from 'date-fns';
 import FavoritesPage from './FavoritesPage';
 
 const genreMap = {
@@ -20,11 +21,10 @@ function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
-  const [sortOption, setSortOption] = useState('none');
+  const [sortOption, setSortOption] = useState('asc'); // Default sorting option
   const [filteredData, setFilteredData] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [seasonData, setSeasonData] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -85,36 +85,8 @@ function HomePage() {
     localStorage.setItem('favorites', JSON.stringify(favorites));
   }, [favorites]);
 
-  const fetchSeasonData = async (id) => {
-    try {
-      const response = await fetch(`https://podcast-api.netlify.app/id/${id}`);
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const result = await response.json();
-
-      if (result.seasons && result.seasons.length > 0) {
-        // Store the episodes for each season
-        const seasonMap = result.seasons.reduce((acc, season) => {
-          acc[season.id] = season.episodes || [];
-          return acc;
-        }, {});
-        setSeasonData({
-          ...result,
-          seasons: result.seasons,
-          seasonEpisodes: seasonMap
-        });
-      } else {
-        setSeasonData({ seasons: [], seasonEpisodes: {} });
-      }
-    } catch (error) {
-      console.error('Failed to fetch season data:', error);
-    }
-  };
-
   const openModal = (card) => {
     setSelectedCard(card);
-    fetchSeasonData(card.id); // Fetch season data for the selected podcast
     setIsExpanded(false);
   };
 
@@ -149,18 +121,14 @@ function HomePage() {
     return genreIds.map(id => genreMap[id] || id).join(', ');
   };
 
-  const renderEpisodes = (episodes) => {
-    return (
-      <ul style={styles.episodeList}>
-        {episodes.map((episode) => (
-          <li key={episode.id} style={styles.episode}>
-            <Link to={`/episodes/${episode.id}`} style={styles.episodeLink}>
-              {episode.title}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    );
+  const formatDate = (dateString) => {
+    try {
+      const parsedDate = parseISO(dateString);
+      return format(parsedDate, 'MMMM dd, yyyy');
+    } catch (error) {
+      console.error('Invalid date format:', dateString);
+      return 'Unknown Date';
+    }
   };
 
   return (
@@ -208,30 +176,22 @@ function HomePage() {
             onClick={(e) => e.stopPropagation()}
             onDoubleClick={toggleExpand}
           >
+            <div style={styles.modalHeader}>
+              <button onClick={() => toggleFavorite(selectedCard)} style={styles.favoriteButton}>
+                {favorites.some(favorite => favorite.id === selectedCard.id) ? '★' : '☆'}
+              </button>
+              <button onClick={closeModal} style={styles.closeButton}>×</button>
+            </div>
             <h2 style={styles.modalTitle}>{selectedCard.title}</h2>
             <img src={selectedCard.image || 'placeholder.jpg'} alt={selectedCard.title} style={styles.modalImage} />
             <p style={styles.modalDescription}>{selectedCard.description || 'No description available'}</p>
-            <p style={styles.info}>Seasons: {selectedCard.seasons || 'N/A'}</p>
             <p style={styles.info}>Episodes: {selectedCard.episodes || 'N/A'}</p>
             <p style={styles.info}>Genres: {getGenreNames(selectedCard.genres || [])}</p>
-
-            <div style={styles.seasonsContainer}>
-              {seasonData.seasons && seasonData.seasons.length > 0 ? (
-                seasonData.seasons.map((season) => (
-                  <div key={season.id} style={styles.season}>
-                    <h3>Season {season.number} - {season.title}</h3>
-                    {renderEpisodes(seasonData.seasonEpisodes[season.id] || [])}
-                  </div>
-                ))
-              ) : (
-                <p>No seasons available</p>
-              )}
-            </div>
+            <p style={styles.info}>Last Updated: {formatDate(selectedCard.updated)}</p>
             
-            <button onClick={() => toggleFavorite(selectedCard)} style={styles.favoriteButton}>
-              {favorites.some(favorite => favorite.id === selectedCard.id) ? '★' : '☆'}
+            <button onClick={() => navigate(`/seasons/${selectedCard.id}`)} style={styles.listenNowButton}>
+              Listen Now
             </button>
-            <button onClick={closeModal} style={styles.closeButton}>×</button>
           </div>
         </div>
       )}
@@ -242,7 +202,7 @@ function HomePage() {
 const styles = {
   container: {
     padding: '20px',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#CFA607',
   },
   header: {
     display: 'flex',
@@ -317,86 +277,67 @@ const styles = {
     backgroundColor: '#fff',
     padding: '20px',
     borderRadius: '10px',
-    maxWidth: '600px',
+    maxWidth: '500px',
     width: '100%',
-    position: 'relative',
-    maxHeight: '80vh',
+    maxHeight: '80%',
     overflowY: 'auto',
-    transition: 'transform 0.3s ease',
+    transition: 'max-height 0.2s ease',
   },
   modalContentExpanded: {
     backgroundColor: '#fff',
-    padding: '40px',
+    padding: '20px',
     borderRadius: '10px',
-    maxWidth: '800px',
+    maxWidth: '500px',
     width: '100%',
-    position: 'relative',
-    transform: 'scale(1.1)',
-    maxHeight: '80vh',
+    maxHeight: 'none',
     overflowY: 'auto',
-    transition: 'transform 1.3s ease',
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '10px',
+  },
+  modalTitle: {
+    fontSize: '1.5rem',
+    marginBottom: '10px',
+    color: '#333',
   },
   modalImage: {
     width: '100%',
-    height: '450px',
-    objectFit: 'cover',
-    borderRadius: '10px',
-    marginBottom: '15px',
-  },
-  modalTitle: {
-    fontSize: '1.75rem',
+    height: 'auto',
     marginBottom: '10px',
-    color: '#333',
   },
   modalDescription: {
     fontSize: '1rem',
     color: '#666',
+    marginBottom: '10px',
   },
   closeButton: {
-    position: 'absolute',
-    top: '-25px',
-    right: '-15px',
+    fontSize: '1.5rem',
     backgroundColor: 'transparent',
     color: 'red',
     border: 'none',
-    padding: '5px',
-    borderRadius: '1px',
     cursor: 'pointer',
-    fontSize: '3rem',
-    outline: 'none',
-    boxShadow: 'none',
+    marginRight: '10px',
   },
-  favoriteButton: {
-    position: 'absolute',
-    top: '-15px',
-    left: '-10px',
-    backgroundColor: 'transparent',
-    color: 'Yellow',
+  listenNowButton: {
+    marginTop: '10px',
+    backgroundColor: '#000',
+    color: '#fff',
+    padding: '10px 20px',
     border: 'none',
-    padding: '10px',
     borderRadius: '5px',
     cursor: 'pointer',
-    fontSize: '2.3rem',
-    outline: 'none',
-    boxShadow: 'none',
   },
-  seasonsContainer: {
-    marginTop: '20px',
-  },
-  season: {
-    marginBottom: '20px',
-  },
-  episodeList: {
-    listStyleType: 'none',
-    padding: 0,
-  },
-  episode: {
-    marginBottom: '10px',
-  },
-  episodeLink: {
-    textDecoration: 'none',
-    color: '#007BFF',
-  },
+  favoriteButton: {
+    backgroundColor: 'transparent',
+    color: '#FFD700',
+    fontSize: '1.5rem',
+    border: 'none',
+    cursor: 'pointer',
+    marginRight: 'auto',
+  }
 };
 
 export default HomePage;
